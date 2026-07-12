@@ -1,4 +1,4 @@
 opencv-python>=4.8.0
-mediapipe>=0.10.0
+mediapipe>=0.10.9
 fastdtw>=0.3.4
 python-dotenv

@@ -203,7 +203,6 @@ def _call_openai_compatible_chat(prompt: str) -> str | None:
     base_url = os.getenv("OPENAI_BASE_URL", DEFAULT_LLM_BASE_URL).rstrip("/")
     model = os.getenv("OPENAI_MODEL", DEFAULT_LLM_MODEL)
     payload = {
-        "model": model,
         "messages": [
             {
                 "role": "system",
@@ -226,34 +225,20 @@ def _call_openai_compatible_chat(prompt: str) -> str | None:
         "temperature": 0.2,
     }
 
-    api_url = f"{base_url}/chat/completions"
-    req = request.Request(
-        api_url,
-        data=json.dumps(payload).encode("utf-8"),
-        headers={
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json",
-        },
-        method="POST",
+    from openai import OpenAI
+    client = OpenAI(api_key=api_key, base_url=base_url)
+    response = client.responses.create(
+        model=model,
+        input=payload["messages"]
     )
-
+    
     try:
-        with request.urlopen(req, timeout=45) as response:
-            data = json.loads(response.read().decode("utf-8"))
-    except (error.URLError, TimeoutError, ValueError, KeyError) as e:
-        print(f"Error occurred while fetching LLM response: {e}")
+        data = response.output_text if hasattr(response, 'output_text') else response.to_dict()
+        return data if isinstance(data, str) else None
+    except Exception as e:
+        print(f"Error parsing LLM response: {e}")
         return None
     
-    print(f"LLM response: {data}")
-
-    choices = data.get("choices") or []
-    if not choices:
-        return None
-
-    message = choices[0].get("message") or {}
-    content = message.get("content")
-    if isinstance(content, str) and content.strip():
-        return content.strip()
     return None
 
 
