@@ -326,10 +326,18 @@ def main() -> int:
     demo_pose_json = _video_pose_output_path(demo_video, output_dir)
     user_pose_json = _video_pose_output_path(user_video, output_dir)
 
+    from multiprocessing import Process
+    procs = []
+    procs.append(Process(target=_run_extraction, args=(demo_video, demo_pose_json, args.frame_step)))
+    procs.append(Process(target=_run_extraction, args=(user_video, user_pose_json, args.frame_step)))
     print(f"Extracting demo pose data to {demo_pose_json}...", flush=True)
-    _run_extraction(demo_video, demo_pose_json, args.frame_step)
     print(f"Extracting user pose data to {user_pose_json}...", flush=True)
-    _run_extraction(user_video, user_pose_json, args.frame_step)
+
+    for proc in procs:
+        proc.start()
+
+    for proc in procs:
+        proc.join()
 
     demo_frames = _load_pose_json(demo_pose_json)
     user_frames = _load_pose_json(user_pose_json)

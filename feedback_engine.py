@@ -187,7 +187,7 @@ def build_llm_context(
 
 
 def _call_openai_compatible_chat(prompt: str) -> str | None:
-    api_key = os.getenv("OPENAI_API_KEY") or os.getenv("LLM_API_KEY")
+    api_key = os.getenv("OPENAI_API_KEY") or os.getenv("genai_api_key")
     if not api_key:
         print("")
         print("너는 스키와 스노보드 동작을 평가하는 한국어 코치다. ")
@@ -200,8 +200,6 @@ def _call_openai_compatible_chat(prompt: str) -> str | None:
         print(f"{prompt}")
         return None
 
-    base_url = os.getenv("OPENAI_BASE_URL", DEFAULT_LLM_BASE_URL).rstrip("/")
-    model = os.getenv("OPENAI_MODEL", DEFAULT_LLM_MODEL)
     payload = {
         "messages": [
             {
@@ -224,17 +222,30 @@ def _call_openai_compatible_chat(prompt: str) -> str | None:
         ],
         "temperature": 0.2,
     }
-
-    from openai import OpenAI
-    client = OpenAI(api_key=api_key, base_url=base_url)
-    response = client.responses.create(
-        model=model,
-        input=payload["messages"]
-    )
     
     try:
+        '''
+        from openai import OpenAI
+        base_url = os.getenv("OPENAI_BASE_URL", DEFAULT_LLM_BASE_URL).rstrip("/")
+        model = os.getenv("OPENAI_MODEL", DEFAULT_LLM_MODEL)
+        client = OpenAI(api_key=api_key, base_url=base_url)
+        response = client.responses.create(
+            model=model,
+            input=payload["messages"]
+        )
         data = response.output_text if hasattr(response, 'output_text') else response.to_dict()
         return data if isinstance(data, str) else None
+        '''
+    
+        from google import genai
+        model = os.getenv("genai_model", "gemini-3.5-flash")
+        client = genai.Client(api_key=api_key)
+        interaction = client.interactions.create(
+            model=model,
+            input=f"{payload['messages'][0]['content']}\n{payload['messages'][1]['content']}"
+        )
+        return interaction.output_text
+
     except Exception as e:
         print(f"Error parsing LLM response: {e}")
         return None
