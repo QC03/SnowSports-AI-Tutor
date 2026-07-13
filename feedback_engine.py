@@ -150,7 +150,7 @@ def build_llm_context(
     return "\n".join(lines)
 
 
-def _call_openai_compatible_chat(prompt: str) -> str | None:
+def _call_llm_compatible_chat(prompt: str) -> str | None:
     api_key = os.getenv("OPENAI_API_KEY") or os.getenv("genai_api_key")
     if not api_key:
         print("")
@@ -214,34 +214,6 @@ def _call_openai_compatible_chat(prompt: str) -> str | None:
         print(f"LLM 호출 중 오류 발생: {e}")
         return None
     
-    return None
-
-
-def _get_first_present_value(data: Mapping[str, Any], keys: Sequence[str]) -> Any:
-    for key in keys:
-        if key in data and data[key] is not None:
-            return data[key]
-    return None
-
-
-def _as_bool(value: Any) -> bool | None:
-    if isinstance(value, bool):
-        return value
-    if isinstance(value, (int, float)):
-        return bool(value)
-    return None
-
-
-def _as_float(value: Any) -> float | None:
-    if isinstance(value, bool) or value is None:
-        return None
-    if isinstance(value, (int, float)):
-        return float(value)
-    try:
-        return float(value)
-    except (TypeError, ValueError):
-        return None
-
 def generate_llm_feedback_report(
     selection: Selection,
     analysis_result: Mapping[str, Any] | None = None,
@@ -250,7 +222,7 @@ def generate_llm_feedback_report(
     """LLM을 사용하여 분석 결과를 기반으로 한국어 피드백 보고서를 생성합니다."""
 
     context = build_llm_context(selection, analysis_result, sync_result)
-    return _call_openai_compatible_chat(context) or "LLM 피드백을 생성할 수 없습니다."
+    return _call_llm_compatible_chat(context) or "LLM 피드백을 생성할 수 없습니다."
 
 
 __all__ = [

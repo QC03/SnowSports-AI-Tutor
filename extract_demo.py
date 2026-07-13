@@ -101,10 +101,10 @@ def extract_pose_from_video(video_path: Path, output_path: Path, frame_step: int
     try:
         capture = cv2.VideoCapture(str(video_path))
         if not capture.isOpened():
-            raise RuntimeError(f"Cannot open video file: {video_path}")
+            raise RuntimeError(f"파일을 열 수 없습니다: {video_path}")
 
         total_frames = int(capture.get(cv2.CAP_PROP_FRAME_COUNT))
-        print(f"Processing video with {total_frames} frames...", flush=True)
+        print(f" {total_frames} 프레임 처리 중...", flush=True)
 
         # 1. 첫 번째 프레임을 읽어와 사용자가 추적할 영역(ROI)을 선택하게 합니다.
         success, first_frame = capture.read()
@@ -120,8 +120,10 @@ def extract_pose_from_video(video_path: Path, output_path: Path, frame_step: int
 
         # 안내창 출력 후 마우스 드래그로 박스 지정 (드래그 후 'Space' 또는 'Enter' 입력)
         print("\n[안내] 팝업창이 뜨면 추적할 대상을 마우스로 드래그한 뒤 'Space' 또는 'Enter'를 누르세요.\n")
-        roi = cv2.selectROI('Select Target Object', first_frame, fromCenter=False, showCrosshair=True)
-        cv2.destroyWindow('Select Target Object')
+
+        selected_roi = '객체를 선택하세요'.encode('utf-8').decode('cp949', errors='ignore')
+        roi = cv2.selectROI(selected_roi, first_frame, fromCenter=False, showCrosshair=True)
+        cv2.destroyWindow(selected_roi)
 
         # 유효한 박스가 지정되었다면 OpenCV CSRT 추적기 초기화
         if roi[2] > 0 and roi[3] > 0:
@@ -144,7 +146,7 @@ def extract_pose_from_video(video_path: Path, output_path: Path, frame_step: int
             min_tracking_confidence=0.5,
         )
         
-        cv2.namedWindow('관절 추출기', cv2.WINDOW_NORMAL)
+        cv2.namedWindow("tracking...", cv2.WINDOW_NORMAL)
         
         # 첫 프레임 처리 과정 포함을 위해 파일 포인터를 처음으로 되돌림
         capture.set(cv2.CAP_PROP_POS_FRAMES, 0)
@@ -181,7 +183,7 @@ def extract_pose_from_video(video_path: Path, output_path: Path, frame_step: int
                             
                             # 시각화를 위해 원본 화면에 내가 지정한 추적 박스 그리기 (파란색)
                             cv2.rectangle(frame, (x1, y1), (x2, y2), (255, 0, 0), 2)
-                            cv2.putText(frame, "객체 추적중", (x1, y1 - 10), 
+                            cv2.putText(frame, "Tracking...", (x1, y1 - 10), 
                             cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 1)
 
                 # 4. MediaPipe 분석 대상 결정 (박스 내부 vs 전체 화면)
@@ -211,7 +213,7 @@ def extract_pose_from_video(video_path: Path, output_path: Path, frame_step: int
                         mp_drawing.DrawingSpec(color=(0, 0, 255), thickness=2, circle_radius=2)
                     )
                 
-                cv2.imshow('MediaPipe Pose Video', frame)
+                cv2.imshow("tracking...", frame)
                 frame_data[str(frame_index)] = serialize_landmarks(results.pose_landmarks)
                 
                 if cv2.waitKey(1) & 0xFF == ord('q'):
