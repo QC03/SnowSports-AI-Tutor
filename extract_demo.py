@@ -141,8 +141,8 @@ def extract_pose_from_video(video_path: Path, output_path: Path, frame_step: int
             print("영역이 지정되지 않아 전체 화면 기준으로 분석을 시작합니다.", flush=True)
 
         # MediaPipe Pose 초기화
-        mp_pose = mp.solutions.pose
-        mp_drawing = mp.solutions.drawing_utils
+        mp_pose = mp.solutions.pose # type: ignore
+        mp_drawing = mp.solutions.drawing_utils # type: ignore
         pose = mp_pose.Pose(
             static_image_mode=False,
             model_complexity=1,
@@ -204,8 +204,8 @@ def extract_pose_from_video(video_path: Path, output_path: Path, frame_step: int
                         # 크롭 좌표계의 랜드마크들을 원본 이미지 상의 절대 좌표로 맵핑
                         for landmark in results.pose_landmarks.landmark:
                             # 크롭 이미지 내부 비율 좌표 -> 원본 이미지 픽셀 좌표 변환
-                            pixel_x = int(landmark.x * bbox_cropped.shape[1]) + x1
-                            pixel_y = int(landmark.y * bbox_cropped.shape[0]) + y1
+                            pixel_x = int(landmark.x * bbox_cropped.shape[1]) + x1 # type: ignore
+                            pixel_y = int(landmark.y * bbox_cropped.shape[0]) + y1 # type: ignore
                             
                             # MediaPipe 내부 규격을 유지하기 위해 원본 비율 좌표로 다시 환산
                             landmark.x = pixel_x / frame.shape[1]

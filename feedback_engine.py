@@ -41,29 +41,10 @@ LEGACY_EVENT_ALIASES: dict[str, tuple[str, str, str]] = {
     "스키_레벨2_페러렐롱턴": ("스키", "레벨2", "페러렐롱턴"),
 }
 
-DEFAULT_LLM_MODEL = os.getenv("OPENAI_MODEL", "gpt-5.4-mini")
-DEFAULT_LLM_BASE_URL = os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1")
-
 STANCE_VARIATION_RANGE_THRESHOLD = 0.15
 STANCE_VARIATION_CV_THRESHOLD = 0.10
 KNEE_EXTENSION_MARGIN_DEGREES = 10.0
 ANGULATION_MISMATCH_THRESHOLD_DEGREES = 8.0
-
-
-@dataclass(frozen=True)
-class FeedbackReport:
-    """Structured feedback items plus the rendered markdown body."""
-
-    selection_label: str
-    items: list[str]
-
-    def render(self) -> str:
-        lines = [f"- 종목: {self.selection_label}"]
-        if self.items:
-            lines.extend(f"- {item}" for item in self.items)
-        else:
-            lines.append("- 현재 분석 결과에서는 KSIA 피드백 대상 문제가 확인되지 않았습니다.")
-        return "\n".join(lines)
 
 
 @dataclass(frozen=True)
@@ -244,7 +225,7 @@ def _call_openai_compatible_chat(prompt: str) -> str | None:
             model=model,
             input=f"{payload['messages'][0]['content']}\n{payload['messages'][1]['content']}"
         )
-        return interaction.output_text
+        return interaction.output_text # type: ignore
 
     except Exception as e:
         print(f"Error parsing LLM response: {e}")
@@ -278,190 +259,6 @@ def _as_float(value: Any) -> float | None:
     except (TypeError, ValueError):
         return None
 
-
-def _is_stance_variation_irregular(data: Mapping[str, Any]) -> bool:
-    explicit_flag = _as_bool(
-        _get_first_present_value(
-            data,
-            (
-                "stance_variation_irregular",
-                "stance_ratio_irregular",
-                "stance_ratio_unstable",
-                "wide_a_frame_irregular",
-            ),
-        )
-    )
-    if explicit_flag is not None:
-        return explicit_flag
-
-    stance_range = _as_float(
-        _get_first_present_value(data, ("stance_ratio_range", "stance_variation_range"))
-    )
-    if stance_range is not None and stance_range >= STANCE_VARIATION_RANGE_THRESHOLD:
-        return True
-
-    stance_cv = _as_float(
-        _get_first_present_value(data, ("stance_ratio_cv", "stance_variation_cv"))
-    )
-    if stance_cv is not None and stance_cv >= STANCE_VARIATION_CV_THRESHOLD:
-        return True
-
-    return False
-
-
-def _is_outside_knee_overextended(data: Mapping[str, Any]) -> bool:
-    explicit_flag = _as_bool(
-        _get_first_present_value(
-            data,
-            (
-                "outside_knee_overextended",
-                "outside_knee_too_extended",
-                "apex_outside_knee_too_straight",
-                "apex_knee_overextended",
-            ),
-        )
-    )
-    if explicit_flag is not None:
-        return explicit_flag
-
-    demo_angle = _as_float(
-        _get_first_present_value(
-            data,
-            (
-                "demo_outside_knee_angle_at_apex",
-                "demo_apex_outside_knee_angle",
-                "demo_apex_knee_angle",
-            ),
-        )
-    )
-    user_angle = _as_float(
-        _get_first_present_value(
-            data,
-            (
-                "user_outside_knee_angle_at_apex",
-                "user_apex_outside_knee_angle",
-                "user_apex_knee_angle",
-            ),
-        )
-    )
-    angle_gap = _as_float(
-        _get_first_present_value(
-            data,
-            (
-                "apex_outside_knee_angle_gap",
-                "apex_knee_angle_gap",
-                "outside_knee_angle_gap",
-            ),
-        )
-    )
-
-    if angle_gap is not None:
-        return angle_gap >= KNEE_EXTENSION_MARGIN_DEGREES
-
-    if demo_angle is not None and user_angle is not None:
-        return (user_angle - demo_angle) >= KNEE_EXTENSION_MARGIN_DEGREES
-
-    return False
-
-
-def _is_angulation_misaligned(data: Mapping[str, Any]) -> bool:
-    explicit_flag = _as_bool(
-        _get_first_present_value(
-            data,
-            (
-                "angulation_misaligned",
-                "angulation_loss",
-                "external_edge_misaligned",
-                "external_canting_misaligned",
-            ),
-        )
-    )
-    if explicit_flag is not None:
-        return explicit_flag
-
-    shoulder_slope = _as_float(
-        _get_first_present_value(
-            data,
-            (
-                "shoulder_line_slope",
-                "shoulder_slope",
-                "shoulder_angle",
-            ),
-        )
-    )
-    knee_slope = _as_float(
-        _get_first_present_value(
-            data,
-            (
-                "knee_line_slope",
-                "knee_slope",
-                "knee_angle",
-            ),
-        )
-    )
-    angulation_gap = _as_float(
-        _get_first_present_value(
-            data,
-            (
-                "angulation_difference",
-                "angulation_gap",
-                "slope_difference",
-            ),
-        )
-    )
-
-    if angulation_gap is not None:
-        return angulation_gap >= ANGULATION_MISMATCH_THRESHOLD_DEGREES
-
-    if shoulder_slope is not None and knee_slope is not None:
-        return abs(shoulder_slope - knee_slope) >= ANGULATION_MISMATCH_THRESHOLD_DEGREES
-
-    return False
-
-
-def build_ksia_feedback_items(
-    selection: Selection,
-    analysis_result: Mapping[str, Any] | None = None,
-) -> list[str]:
-    """Return the KSIA feedback bullets that match the selected event."""
-
-    data = dict(analysis_result or {})
-    items: list[str] = []
-
-    if selection.key == "스키::레벨1::스노우플라우턴":
-        if _is_stance_variation_irregular(data):
-            items.append(
-                "❌ 턴 제어 중 A자 넓이가 불규칙하게 변합니다. 발바닥 전체에 일정한 압력을 유지하세요."
-            )
-        if _is_outside_knee_overextended(data):
-            items.append(
-                "❌ 턴 할 때 바깥쪽 무릎이 너무 펴져 있어 체중 이동이 부족합니다. 데몬처럼 무릎을 더 구부리세요."
-            )
-        return items
-
-    if selection.key == "스키::레벨2::페러렐롱턴":
-        if _is_angulation_misaligned(data):
-            items.append(
-                "❌ 외경(Angulation) 자세가 무너져 상체가 안쪽으로 쏠리고 있습니다. 어깨 수평을 데몬처럼 유지하세요."
-            )
-        return items
-
-    return items
-
-
-def generate_ksia_feedback_report(
-    selection: Selection,
-    analysis_result: Mapping[str, Any] | None = None,
-) -> str:
-    """Render a markdown list report from the selected event and analysis."""
-
-    report = FeedbackReport(
-        selection_label=selection.label,
-        items=build_ksia_feedback_items(selection, analysis_result),
-    )
-    return report.render()
-
-
 def generate_llm_feedback_report(
     selection: Selection,
     analysis_result: Mapping[str, Any] | None = None,
@@ -471,26 +268,17 @@ def generate_llm_feedback_report(
     """Render LLM feedback, falling back to a deterministic report if needed."""
 
     context = build_llm_context(selection, analysis_result, sync_result, rule_items)
-    llm_text = _call_openai_compatible_chat(context)
-    if llm_text:
-        return llm_text
-
-    fallback_items = list(rule_items or build_ksia_feedback_items(selection, analysis_result))
-    fallback_report = FeedbackReport(selection_label=selection.label, items=fallback_items)
-    return fallback_report.render()
+    return _call_openai_compatible_chat(context) or "LLM 피드백을 생성할 수 없습니다."
 
 
 __all__ = [
-    "FeedbackReport",
     "LEGACY_EVENT_ALIASES",
     "Selection",
     "SPORT_CURRICULUM",
     "build_llm_context",
     "build_selection",
     "build_selection_summary",
-    "build_ksia_feedback_items",
     "generate_llm_feedback_report",
-    "generate_ksia_feedback_report",
     "list_levels",
     "list_sports",
     "list_techniques",
