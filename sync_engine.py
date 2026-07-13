@@ -1,16 +1,9 @@
-"""Synchronize demo and user angle sequences with FastDTW.
-
-The input sequences are expected to be per-frame knee-angle values that were
-derived from pose landmarks, for example using helpers from
-``geometry_utils.py``.
-"""
-
 from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Sequence, TypedDict
 
-from fastdtw import fastdtw
+from fastdtw import fastdtw # type: ignore
 
 
 class FramePair(TypedDict):
@@ -88,21 +81,18 @@ def synchronize_angle_sequences(
     user_angles: Sequence[float | None],
     threshold_degrees: float = 15.0,
 ) -> SyncResult:
-    """Align two angle sequences and flag large deviations.
+    """정렬된 데모 각도 시퀀스와 사용자 각도 시퀀스를 FastDTW를 사용하여 동기화합니다.
 
     Args:
-        demo_angles: Demo knee-angle values ordered by frame.
-        user_angles: User knee-angle values ordered by frame.
-        threshold_degrees: Absolute angle difference required to mark a frame
-            pair as anomalous.
+        demo_angles: 데모의 knee-angle 값이 프레임 순서대로 정렬된 시퀀스.
+        user_angles: 사용자 knee-angle 값이 프레임 순서대로 정렬된 시퀀스.
+        threshold_degrees: 절대값 각도 차이가 이 임계값보다 큰 경우, 해당 프레임 쌍을 이상치로 간주합니다.
 
     Returns:
-        A ``SyncResult`` containing the FastDTW distance, the matched frame
-        path, and the anomaly frame list.
+        A ``SyncResult`` 객체, 여기에는 동기화 거리, 프레임 쌍 경로, 이상치 프레임 목록이 포함됩니다.
 
     Raises:
-        ValueError: If either sequence has no valid angle samples after missing
-            values are removed.
+        ValueError: demo_angles 또는 user_angles에 유효한 값이 없는 경우.
     """
 
     prepared_demo = _prepare_angle_sequence(demo_angles)
@@ -138,7 +128,7 @@ def sync_demo_and_user_angles(
     user_angles: Sequence[float | None],
     threshold_degrees: float = 15.0,
 ) -> tuple[list[FramePair], list[AnomalyFrame]]:
-    """Convenience wrapper that returns just the path and anomaly frames."""
+    """데모 각도 시퀀스와 사용자 각도 시퀀스를 동기화하고 이상치 프레임을 반환합니다."""
 
     result = synchronize_angle_sequences(
         demo_angles=demo_angles,

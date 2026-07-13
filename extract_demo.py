@@ -1,10 +1,3 @@
-"""Extract MediaPipe Pose landmarks from a video file.
-
-This script reads a video frame by frame, runs MediaPipe Pose with
-model_complexity=2, and stores the 33 pose landmarks as JSON keyed by
-frame number.
-"""
-
 from __future__ import annotations
 
 import argparse
@@ -21,21 +14,20 @@ POSE_LANDMARK_COUNT = 33
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
-            "Extract MediaPipe Pose (33 landmarks) coordinates from a video and "
-            "save them to JSON keyed by frame number."
+            "포즈를 추출하고 JSON으로 저장하는 데모 스크립트입니다. "
         )
     )
-    parser.add_argument("video_path", help="Path to the input video file")
+    parser.add_argument("video_path", help="입력 비디오 파일 경로")
     parser.add_argument(
         "-o",
         "--output",
-        help="Path to the output JSON file. Defaults to <video_stem>_pose.json",
+        help="출력 JSON 파일 경로. 기본값 <video_stem>_pose.json",
     )
     parser.add_argument(
         "--frame-step",
         type=int,
         default=1,
-        help="Process every Nth frame and store None for skipped frames",
+        help="N번째 프레임을 처리하고 건너뛴 프레임에는 None을 저장합니다.",
     )
     return parser.parse_args()
 
@@ -92,7 +84,7 @@ def extract_pose_from_video(video_path: Path, output_path: Path, frame_step: int
     try:
         import mediapipe as mp
     except ImportError as e:
-        print(f"Error: MediaPipe import failed. {e}", file=sys.stderr)
+        print(f"Error: MediaPipe를 불러오는 데 실패했습니다. {e}", file=sys.stderr)
         return 1
 
     frame_data: dict[str, list[dict[str, float | None]]] = {}
@@ -103,7 +95,7 @@ def extract_pose_from_video(video_path: Path, output_path: Path, frame_step: int
     status = 0
 
     if frame_step < 1:
-        print("Error: frame_step must be at least 1", file=sys.stderr)
+        print("Error: 프레임 간격은 1 이상이어야 합니다.", file=sys.stderr)
         return 1
 
     try:
@@ -152,7 +144,7 @@ def extract_pose_from_video(video_path: Path, output_path: Path, frame_step: int
             min_tracking_confidence=0.5,
         )
         
-        cv2.namedWindow('MediaPipe Pose Video', cv2.WINDOW_NORMAL)
+        cv2.namedWindow('관절 추출기', cv2.WINDOW_NORMAL)
         
         # 첫 프레임 처리 과정 포함을 위해 파일 포인터를 처음으로 되돌림
         capture.set(cv2.CAP_PROP_POS_FRAMES, 0)
@@ -160,7 +152,7 @@ def extract_pose_from_video(video_path: Path, output_path: Path, frame_step: int
         while True:
             success, frame = capture.read()
             if not success:
-                print(f"Finished reading video. Total frames processed: {frame_index}", flush=True)
+                print(f"비디오 읽기 완료. 총 처리된 프레임 수: {frame_index}", flush=True)
                 break
 
             h, w, _ = frame.shape
@@ -189,8 +181,8 @@ def extract_pose_from_video(video_path: Path, output_path: Path, frame_step: int
                             
                             # 시각화를 위해 원본 화면에 내가 지정한 추적 박스 그리기 (파란색)
                             cv2.rectangle(frame, (x1, y1), (x2, y2), (255, 0, 0), 2)
-                            cv2.putText(frame, "Tracking Object", (x1, y1 - 10), 
-                                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 1)
+                            cv2.putText(frame, "객체 추적중", (x1, y1 - 10), 
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 1)
 
                 # 4. MediaPipe 분석 대상 결정 (박스 내부 vs 전체 화면)
                 analysis_target = bbox_cropped if bbox_cropped is not None else frame
@@ -247,11 +239,11 @@ def extract_pose_from_video(video_path: Path, output_path: Path, frame_step: int
             cv2.waitKey(1) 
             
         try:
-            print(f"Saving {len(frame_data)} frames to JSON...", flush=True)
+            print(f"{len(frame_data)} 프레임을 JSON으로 저장 중...", flush=True)
             save_json(output_path, frame_data)
-            print(f"Successfully saved to {output_path}", flush=True)
+            print(f"성공적으로 {output_path}에 저장되었습니다.", flush=True)
         except Exception as save_exc:
-            print(f"Failed to save JSON: {save_exc}", file=sys.stderr)
+            print(f"JSON 저장 실패: {save_exc}", file=sys.stderr)
             import traceback
             traceback.print_exc()
             status = 1
@@ -266,7 +258,7 @@ def main() -> int:
     output_path = build_output_path(video_path, args.output)
 
     if not video_path.exists():
-        print(f"Error: input video does not exist: {video_path}", file=sys.stderr)
+        print(f"Error: 입력 비디오가 존재하지 않습니다: {video_path}", file=sys.stderr)
         return 1
 
     return extract_pose_from_video(video_path, output_path, frame_step=args.frame_step)

@@ -1,10 +1,3 @@
-"""Build feedback text from motion analysis results.
-
-This module stores the snow sports curriculum, turns a compact analysis
-summary into a structured report, and optionally asks an OpenAI-compatible LLM
-to turn that summary into Korean coaching feedback.
-"""
-
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -41,15 +34,10 @@ LEGACY_EVENT_ALIASES: dict[str, tuple[str, str, str]] = {
     "스키_레벨2_페러렐롱턴": ("스키", "레벨2", "페러렐롱턴"),
 }
 
-STANCE_VARIATION_RANGE_THRESHOLD = 0.15
-STANCE_VARIATION_CV_THRESHOLD = 0.10
-KNEE_EXTENSION_MARGIN_DEGREES = 10.0
-ANGULATION_MISMATCH_THRESHOLD_DEGREES = 8.0
-
 
 @dataclass(frozen=True)
 class Selection:
-    """Chosen sport, level, and technique."""
+    """레벨, 종목, 기술 선택을 나타내는 데이터 클래스입니다."""
 
     sport: str
     level: str
@@ -78,11 +66,11 @@ def list_techniques(sport: str, level: str) -> list[str]:
 
 def build_selection(sport: str, level: str, technique: str) -> Selection:
     if sport not in SPORT_CURRICULUM:
-        raise ValueError(f"Unsupported sport: {sport}")
+        raise ValueError(f"지원하지 않는 종목입니다: {sport}")
     if level not in SPORT_CURRICULUM[sport]:
-        raise ValueError(f"Unsupported level for {sport}: {level}")
+        raise ValueError(f"지원하지 않는 레벨입니다 {sport}: {level}")
     if technique not in SPORT_CURRICULUM[sport][level]:
-        raise ValueError(f"Unsupported technique for {sport} {level}: {technique}")
+        raise ValueError(f"지원하지 않는 기술입니다 {sport} {level}: {technique}")
     return Selection(sport=sport, level=level, technique=technique)
 
 
@@ -98,7 +86,7 @@ def selection_from_legacy_event(event_name: str) -> Selection:
             if event_name == f"{sport} {level} {techniques[0]}":
                 return build_selection(sport, level, techniques[0])
 
-    raise ValueError(f"Unsupported event name: {event_name}")
+    raise ValueError(f"지원하지 않는 이벤트 이름입니다: {event_name}")
 
 
 def selection_from_any(
@@ -110,7 +98,7 @@ def selection_from_any(
     if event_name:
         return selection_from_legacy_event(event_name)
     if sport is None or level is None or technique is None:
-        raise ValueError("Sport, level, and technique are required when event_name is not provided")
+        raise ValueError("sport, level, technique 는 모두 필요합니다.")
     return build_selection(sport, level, technique)
 
 
@@ -146,7 +134,6 @@ def build_llm_context(
     selection: Selection,
     analysis_result: Mapping[str, Any] | None = None,
     sync_result: Mapping[str, Any] | None = None,
-    rule_items: Sequence[str] | None = None,
 ) -> str:
     lines = [
         f"선택 종목: {selection.label}",
@@ -159,10 +146,6 @@ def build_llm_context(
         lines.append(f"이상 프레임 수: {sync_result.get('anomaly_count')}")
 
     lines.extend(_render_numeric_summary(analysis_result))
-
-    if rule_items:
-        lines.append("규칙 기반 감지 항목:")
-        lines.extend(f"- {item}" for item in rule_items)
 
     return "\n".join(lines)
 
@@ -228,7 +211,7 @@ def _call_openai_compatible_chat(prompt: str) -> str | None:
         return interaction.output_text # type: ignore
 
     except Exception as e:
-        print(f"Error parsing LLM response: {e}")
+        print(f"LLM 호출 중 오류 발생: {e}")
         return None
     
     return None
@@ -263,11 +246,10 @@ def generate_llm_feedback_report(
     selection: Selection,
     analysis_result: Mapping[str, Any] | None = None,
     sync_result: Mapping[str, Any] | None = None,
-    rule_items: Sequence[str] | None = None,
 ) -> str:
-    """Render LLM feedback, falling back to a deterministic report if needed."""
+    """LLM을 사용하여 분석 결과를 기반으로 한국어 피드백 보고서를 생성합니다."""
 
-    context = build_llm_context(selection, analysis_result, sync_result, rule_items)
+    context = build_llm_context(selection, analysis_result, sync_result)
     return _call_openai_compatible_chat(context) or "LLM 피드백을 생성할 수 없습니다."
 
 

@@ -1,10 +1,3 @@
-"""End-to-end video analysis pipeline for demo and user videos.
-
-This script extracts pose landmarks from both videos, computes motion metrics,
-synchronizes the knee-angle sequences, and generates coaching feedback for the
-selected snow sport technique.
-"""
-
 from __future__ import annotations
 
 import argparse
@@ -20,7 +13,6 @@ from feedback_engine import (
     SPORT_CURRICULUM,
     build_selection,
     build_selection_summary,
-    build_ksia_feedback_items,
     generate_llm_feedback_report,
     selection_from_legacy_event,
 )
@@ -45,8 +37,7 @@ RIGHT_ANKLE_INDEX = 28
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
-            "Run pose extraction, synchronization, and LLM-backed feedback "
-            "generation for a demo video and a user video."
+            "동기화 및 분석을 수행하고, 데모 비디오와 사용자 비디오에 대한 피드백 보고서를 생성하는 스크립트입니다."
         )
     )
     parser.add_argument("demo_video", help="Path to the demo video file")
@@ -54,20 +45,20 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--output-dir",
         default="analysis_outputs",
-        help="Directory for generated JSON and summary files",
+        help="출력 파일을 저장할 디렉토리. 기본값은 'analysis_outputs'입니다.",
     )
     parser.add_argument(
         "--sport",
         choices=sorted(SPORT_CURRICULUM.keys()),
-        help="Choose the sport explicitly instead of prompting interactively",
+        help="스포츠를 직접 선택합니다. 대화형으로 선택하려면 비워두세요.",
     )
     parser.add_argument(
         "--level",
-        help="Choose the level explicitly instead of prompting interactively",
+        help="레벨을 직접 선택합니다. 대화형으로 선택하려면 비워두세요.",
     )
     parser.add_argument(
         "--technique",
-        help="Choose the technique explicitly instead of prompting interactively",
+        help="기술을 직접 선택합니다. 대화형으로 선택하려면 비워두세요.",
     )
     parser.add_argument(
         "--event",
@@ -80,23 +71,23 @@ def parse_args() -> argparse.Namespace:
         "--threshold-degrees",
         type=float,
         default=15.0,
-        help="Angle gap threshold used by the sync/anomaly step",
+        help="각도 동기화에 사용할 최대 허용 각도 차이. 기본값은 15.0°입니다.",
     )
     parser.add_argument(
         "--frame-step",
         type=int,
         default=1,
-        help="Process every Nth frame during pose extraction",
+        help="N번째 프레임을 처리하고 건너뛴 프레임에는 None을 저장합니다. 기본값은 1입니다.",
     )
     return parser.parse_args()
 
 
 def _prompt_choice(label: str, options: list[str]) -> str:
     if not options:
-        raise ValueError(f"No options available for {label}")
+        raise ValueError(f"해당 {label}을(를) 찾을 수 없습니다.")
 
     if not sys.stdin.isatty():
-        raise ValueError(f"Interactive selection is unavailable for {label}; pass an explicit argument")
+        raise ValueError(f"대화형으로 선택할 수 없습니다 {label};")
 
     print(f"Select {label}:")
     for index, option in enumerate(options, start=1):
@@ -107,13 +98,13 @@ def _prompt_choice(label: str, options: list[str]) -> str:
         try:
             choice_index = int(raw_value)
         except ValueError:
-            print("Please enter a valid number.")
+            print("유효한 숫자를 입력하세요.")
             continue
 
         if 1 <= choice_index <= len(options):
             return options[choice_index - 1]
 
-        print("Choice out of range.")
+        print("선택한 번호가 범위를 벗어났습니다. 다시 시도하세요.")
 
 
 def _resolve_selection(args: argparse.Namespace):
@@ -317,10 +308,10 @@ def main() -> int:
     output_dir.mkdir(parents=True, exist_ok=True)
 
     if not demo_video.exists():
-        print(f"Error: demo video does not exist: {demo_video}", file=sys.stderr)
+        print(f"Error: 데모 영상이 존재하지 않습니다: {demo_video}", file=sys.stderr)
         return 1
     if not user_video.exists():
-        print(f"Error: user video does not exist: {user_video}", file=sys.stderr)
+        print(f"Error: 사용자 영상이 존재하지 않습니다: {user_video}", file=sys.stderr)
         return 1
 
     demo_pose_json = _video_pose_output_path(demo_video, output_dir)
@@ -330,8 +321,8 @@ def main() -> int:
     procs = []
     procs.append(Process(target=_run_extraction, args=(demo_video, demo_pose_json, args.frame_step)))
     procs.append(Process(target=_run_extraction, args=(user_video, user_pose_json, args.frame_step)))
-    print(f"Extracting demo pose data to {demo_pose_json}...", flush=True)
-    print(f"Extracting user pose data to {user_pose_json}...", flush=True)
+    print(f"데모 데이터 추출 중 {demo_pose_json}...", flush=True)
+    print(f"사용자 데이터 추출 중 {user_pose_json}...", flush=True)
 
     for proc in procs:
         proc.start()
@@ -353,8 +344,7 @@ def main() -> int:
 
     analysis_result = _build_analysis_result(demo_sequence, user_sequence, sync_result)
     sync_summary = _build_sync_summary(sync_result)
-    rule_items = build_ksia_feedback_items(selection, analysis_result)
-    feedback_text = generate_llm_feedback_report(selection, analysis_result, sync_summary, rule_items)
+    feedback_text = generate_llm_feedback_report(selection, analysis_result, sync_summary)
     summary_path = output_dir / "analysis_summary.json"
     with summary_path.open("w", encoding="utf-8") as file_handle:
         json.dump(
@@ -365,7 +355,6 @@ def main() -> int:
                 "anomaly_frames": sync_result.anomaly_frames,
                 "analysis_result": analysis_result,
                 "sync_summary": sync_summary,
-                "rule_items": rule_items,
                 "llm_feedback": feedback_text,
             },
             file_handle,
@@ -373,10 +362,10 @@ def main() -> int:
             indent=2,
         )
 
-    print(f"Saved analysis summary to {summary_path}")
-    print(f"Matched frame pairs: {len(sync_result.path)}")
-    print(f"Anomaly frames: {len(sync_result.anomaly_frames)}")
-    print(f"Selected technique: {selection.label}")
+    print(f"분석 요약 저장됨: {summary_path}")
+    print(f"매칭된 프레임 쌍: {len(sync_result.path)}")
+    print(f"이상 프레임: {len(sync_result.anomaly_frames)}")
+    print(f"선택된 기술: {selection.label}")
     print()
     print(feedback_text)
 

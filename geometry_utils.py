@@ -1,10 +1,3 @@
-"""Geometry helpers for MediaPipe pose landmark analysis.
-
-The functions in this module are designed to work with the JSON structure
-produced by ``extract_demo.py``: a list of 33 landmark dictionaries with
-``x``, ``y``, and ``z`` keys.
-"""
-
 from __future__ import annotations
 
 import math
@@ -53,11 +46,11 @@ def normalize_landmarks_by_shoulder_width(
     left_shoulder_index: int = LEFT_SHOULDER_INDEX,
     right_shoulder_index: int = RIGHT_SHOULDER_INDEX,
 ) -> tuple[list[LandmarkDict], float | None]:
-    """Center landmarks on the shoulder midpoint and scale by shoulder width.
+    """가운데 어깨 너비를 기준으로 포즈 랜드마크를 정규화합니다.
 
-    Returns the normalized landmarks and the shoulder width used as the scale.
-    If the shoulder width cannot be computed, all normalized coordinates are
-    returned as ``None`` and the scale is ``None``.
+    반환 값은 정규화된 랜드마크 목록과 어깨 너비입니다.
+    어깨 너비를 계산할 수 없는 경우,
+    모든 정규화된 좌표는 ``None``으로 반환되며 스케일도 ``None``입니다.
     """
 
     if len(landmarks) < POSE_LANDMARK_COUNT:
@@ -124,7 +117,7 @@ def calculate_stance_ratio(
     left_ankle_index: int = LEFT_ANKLE_INDEX,
     right_ankle_index: int = RIGHT_ANKLE_INDEX,
 ) -> float | None:
-    """Return the ankle separation measured in normalized shoulder-width units."""
+    """반환 값은 왼쪽 발목과 오른쪽 발목 사이의 거리입니다."""
 
     if len(normalized_landmarks) <= max(left_ankle_index, right_ankle_index):
         return None
@@ -149,7 +142,7 @@ def calculate_joint_angle(
     point_b: PointLike,
     point_c: PointLike,
 ) -> float | None:
-    """Return the angle ABC in degrees using the dot product and arccosine."""
+    """반환 값은 점 A, B, C가 이루는 각도입니다. 점 B는 꼭짓점입니다. 각도는 0°에서 180° 사이입니다."""
 
     a = _as_point(point_a)
     b = _as_point(point_b)
